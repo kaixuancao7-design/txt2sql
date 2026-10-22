@@ -1,0 +1,9 @@
+{
+  "name": "有效成交额",
+  "aliases": ["有效成交额"],
+  "definition": "有效成交额只包含已完成订单金额之和，单位元，排除退款。",
+  "table": "orders",
+  "required_filters": {
+    "status": "已完成"
+  }
+}

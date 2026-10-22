@@ -1,0 +1,160 @@
+[
+  {
+    "id": "demo-sales",
+    "kind": "metric",
+    "name": "销售额",
+    "aliases": [
+      "销售额",
+      "成交额"
+    ],
+    "definition": "销售额：仅统计已完成订单的 amount 之和，单位元，不包含退款。",
+    "table": "orders",
+    "required_filters": {
+      "status": "已完成"
+    },
+    "status": "builtin",
+    "review": {
+      "reviewer": "项目合成数据基准（非用户审核）",
+      "schema_hash": "b13dbc46a9f34d3a3689826f752439e83f20f56c0e5fb7d497599d04d2224f07",
+      "content_hash": "d438ec92641d51e29ca9d12c56c982f1acc75782f3f6ba2ecaf1e41e2c708c8e"
+    }
+  },
+  {
+    "id": "demo-example-1",
+    "kind": "example",
+    "question": "各地区销售额",
+    "sql": "SELECT region AS 地区, SUM(amount) AS 销售额 FROM orders WHERE status = '已完成' GROUP BY region ORDER BY 销售额 DESC",
+    "expected": {
+      "columns": [
+        "地区",
+        "销售额"
+      ],
+      "rows": [
+        [
+          "华南",
+          67820.0
+        ],
+        [
+          "华东",
+          64536.0
+        ],
+        [
+          "西南",
+          64005.0
+        ],
+        [
+          "华北",
+          63774.0
+        ]
+      ]
+    },
+    "status": "builtin",
+    "review": {
+      "reviewer": "项目合成数据基准（非用户审核）",
+      "schema_hash": "b13dbc46a9f34d3a3689826f752439e83f20f56c0e5fb7d497599d04d2224f07",
+      "content_hash": "86317ffa9923da103f9c683e508142bbd589543aa4065e9a13fcac8929b9e2f5",
+      "metric_hash": "774c8b153db00ab55e4cf29ddf2bcfd8bdea39d64c2bdac52369aec1ea7df467"
+    }
+  },
+  {
+    "id": "demo-example-2",
+    "kind": "example",
+    "question": "每月销售趋势",
+    "sql": "SELECT substr(order_date,1,7) AS 月份, SUM(amount) AS 销售额 FROM orders WHERE status = '已完成' GROUP BY 月份 ORDER BY 月份",
+    "expected": {
+      "columns": [
+        "月份",
+        "销售额"
+      ],
+      "rows": [
+        [
+          "2026-01",
+          32963.0
+        ],
+        [
+          "2026-02",
+          43635.0
+        ],
+        [
+          "2026-03",
+          54607.0
+        ],
+        [
+          "2026-04",
+          31979.0
+        ],
+        [
+          "2026-05",
+          42951.0
+        ],
+        [
+          "2026-06",
+          54000.0
+        ]
+      ]
+    },
+    "status": "builtin",
+    "review": {
+      "reviewer": "项目合成数据基准（非用户审核）",
+      "schema_hash": "b13dbc46a9f34d3a3689826f752439e83f20f56c0e5fb7d497599d04d2224f07",
+      "content_hash": "4e0b3e3c2e47195946a646550f52711e4e44c2fe22dabf2063a033ad62a87a68",
+      "metric_hash": "774c8b153db00ab55e4cf29ddf2bcfd8bdea39d64c2bdac52369aec1ea7df467"
+    }
+  },
+  {
+    "id": "demo-example-3",
+    "kind": "example",
+    "question": "销售额最高的五个产品",
+    "sql": "SELECT product AS 产品, SUM(amount) AS 销售额 FROM orders WHERE status = '已完成' GROUP BY product ORDER BY 销售额 DESC LIMIT 5",
+    "expected": {
+      "columns": [
+        "产品",
+        "销售额"
+      ],
+      "rows": [
+        [
+          "数据服务",
+          94194.0
+        ],
+        [
+          "分析工具",
+          83555.0
+        ],
+        [
+          "企业订阅",
+          82386.0
+        ]
+      ]
+    },
+    "status": "builtin",
+    "review": {
+      "reviewer": "项目合成数据基准（非用户审核）",
+      "schema_hash": "b13dbc46a9f34d3a3689826f752439e83f20f56c0e5fb7d497599d04d2224f07",
+      "content_hash": "752f3e2d5c48452381adef7bcf8183517109f43840191801a8054a95aa8aa151",
+      "metric_hash": "774c8b153db00ab55e4cf29ddf2bcfd8bdea39d64c2bdac52369aec1ea7df467"
+    }
+  },
+  {
+    "id": "demo-example-4",
+    "kind": "example",
+    "question": "已完成订单数",
+    "sql": "SELECT COUNT(*) AS 已完成订单数 FROM orders WHERE status = '已完成'",
+    "expected": {
+      "columns": [
+        "已完成订单数"
+      ],
+      "rows": [
+        [
+          110
+        ]
+      ]
+    },
+    "status": "builtin",
+    "review": {
+      "reviewer": "项目合成数据基准（非用户审核）",
+      "schema_hash": "b13dbc46a9f34d3a3689826f752439e83f20f56c0e5fb7d497599d04d2224f07",
+      "content_hash": "e17b6bd60b1cd56a5e6c2119c2cbee0c0d740b9536d9ec38e18a36629a27ea76",
+      "metric_hash": "774c8b153db00ab55e4cf29ddf2bcfd8bdea39d64c2bdac52369aec1ea7df467"
+    }
+  }
+]

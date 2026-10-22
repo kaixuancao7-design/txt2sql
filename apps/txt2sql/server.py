@@ -18,19 +18,7 @@ DATA = ROOT / "data"
 if (ROOT / ".deps").is_dir():
     sys.path.insert(0, str(ROOT / ".deps"))
 from workflow import Workflow
-EXAMPLES = {
-    "各地区销售额": "SELECT region AS 地区, SUM(amount) AS 销售额 FROM orders WHERE status = '已完成' GROUP BY region ORDER BY 销售额 DESC",
-    "每月销售趋势": "SELECT substr(order_date,1,7) AS 月份, SUM(amount) AS 销售额 FROM orders WHERE status = '已完成' GROUP BY 月份 ORDER BY 月份",
-    "销售额最高的五个产品": "SELECT product AS 产品, SUM(amount) AS 销售额 FROM orders WHERE status = '已完成' GROUP BY product ORDER BY 销售额 DESC LIMIT 5",
-    "已完成订单数": "SELECT COUNT(*) AS 已完成订单数 FROM orders WHERE status = '已完成'",
-}
-CONTEXT = """SQLite 数据库，仅允许查询 orders 表。
-字段：id INTEGER 订单编号，order_date TEXT 日期 YYYY-MM-DD，region TEXT 地区，
-product TEXT 产品，amount REAL 订单金额（元），status TEXT 状态（已完成/已退款）。
-销售额定义：仅统计 status='已完成' 的 amount 之和，不包含退款订单。
-数据为 2026 年 1 至 6 月的合成演示数据，不代表真实业务。
-缺少必要口径、日期含义不明时应澄清，不能编造字段或数据。
-"""
+from knowledge import KnowledgeCatalog
 
 
 def init_demo(path):
@@ -89,15 +77,19 @@ class SQLiteExecutor:
 
 
 class ModelPlanner:
+    def __init__(self, catalog):
+        self.catalog = catalog
+
     def rewrite(self, question):
+        examples = self.catalog.examples()
         if not os.environ.get("TXT2SQL_API_KEY"):
-            if question in EXAMPLES:
+            if question in examples:
                 return {"rewritten": question, "clarification": ""}
             # A resumed answer can choose an explicit supported example.
-            if "用户补充：" in question and question.rsplit("用户补充：", 1)[1].strip() in EXAMPLES:
+            if "用户补充：" in question and question.rsplit("用户补充：", 1)[1].strip() in examples:
                 return {"rewritten": question.rsplit("用户补充：", 1)[1].strip(), "clarification": ""}
-            return {"clarification": "演示模式请补充一个示例问题：" + "、".join(EXAMPLES)}
-        plan = self.complete("你是查询改写节点。不要生成 SQL。检测歧义及缺失条件。返回 JSON {\"rewritten\":\"完整独立问题\",\"clarification\":\"\"}；信息不足时 clarification 填追问。\n" + CONTEXT, question)
+            return {"clarification": "演示模式请补充一个示例问题：" + "、".join(examples)}
+        plan = self.complete("你是查询改写节点。不要生成 SQL。检测歧义及缺失条件。返回 JSON {\"rewritten\":\"完整独立问题\",\"clarification\":\"\"}；信息不足时 clarification 填追问。\n" + self.catalog.retrieve(question)["context"], question)
         if not isinstance(plan.get("rewritten", ""), str) or not isinstance(plan.get("clarification", ""), str):
             raise ValueError("查询改写输出格式不正确")
         if not plan.get("rewritten") and not plan.get("clarification"):
@@ -116,7 +108,7 @@ class ModelPlanner:
 
     def explain(self, question, result):
         if not os.environ.get("TXT2SQL_API_KEY"):
-            return f"已按已完成订单口径查询，共返回 {len(result['rows'])} 行。请结合列名查看结果。"
+            return f"查询完成，共返回 {len(result['rows'])} 行。具体口径请查看匹配的指标说明与 SQL。"
         sample = {**result, "rows": result["rows"][:20]}
         plan = self.complete('根据提供结果作简短中文解读，不推断因果，不编造数据。只返回 JSON {"explanation":"解读"}。注意结果可能截断且最多提供前20行。', json.dumps({"question": question, "result": sample}, ensure_ascii=False))
         if not isinstance(plan.get("explanation"), str):
@@ -124,12 +116,13 @@ class ModelPlanner:
         return plan["explanation"]
 
     def plan(self, question):
+        examples = self.catalog.examples()
         key = os.environ.get("TXT2SQL_API_KEY")
         if not key:
-            if question in EXAMPLES:
-                return {"sql": EXAMPLES[question]}
+            if question in examples:
+                return {"sql": examples[question]}
             return {"clarification": "当前为固定示例演示模式，请选择一个示例问题。配置模型后可提出其他问题。"}
-        return self.complete(CONTEXT + '\n只返回 JSON：{"sql":"单条只读 SQL"} 或 {"clarification":"需要用户补充的问题"}。', question)
+        return self.complete(self.catalog.retrieve(question)["context"] + '\n只返回 JSON：{"sql":"单条只读 SQL"} 或 {"clarification":"需要用户补充的问题"}。', question)
 
     def complete(self, prompt, question):
         key = os.environ.get("TXT2SQL_API_KEY")
@@ -154,10 +147,11 @@ class ModelPlanner:
 
 
 class Application:
-    def __init__(self, path):
+    def __init__(self, path, knowledge_dir=None):
         self.executor = SQLiteExecutor(path)
-        self.planner = ModelPlanner()
-        self.workflow = Workflow(self.executor, self.planner, path.parent, CONTEXT, EXAMPLES)
+        self.catalog = KnowledgeCatalog(path, knowledge_dir or path.parent / "knowledge", self.executor)
+        self.planner = ModelPlanner(self.catalog)
+        self.workflow = Workflow(self.executor, self.planner, path.parent, catalog=self.catalog)
 
     def ask(self, question, thread_id=None):
         return self.workflow.ask(question, thread_id)
@@ -184,21 +178,28 @@ def make_handler(app):
             if self.path == "/":
                 self.respond(200, (ROOT / "static/index.html").read_bytes(), "text/html; charset=utf-8")
             elif self.path == "/api/context":
-                self.respond(200, {"context": CONTEXT, "examples": list(EXAMPLES), "token": token,
-                                   "mode": "模型模式" if os.environ.get("TXT2SQL_API_KEY") else "示例演示模式"})
+                try:
+                    knowledge = app.catalog.retrieve("")
+                    self.respond(200, {"context": knowledge["context"], "examples": list(app.catalog.examples()), "token": token,
+                                       "knowledge_version": knowledge["version"], "sources": knowledge["sources"],
+                                       "mode": "模型模式" if os.environ.get("TXT2SQL_API_KEY") else "示例演示模式"})
+                except (ValueError, OSError, sqlite3.Error):
+                    self.respond(400, {"error": "知识目录不可用，请检查目录格式及数据库结构"})
             else:
                 self.respond(404, {"error": "页面不存在"})
 
         def do_POST(self):
             if self.path != "/api/ask":
                 return self.respond(404, {"error": "接口不存在"})
-            if self.headers.get("X-App-Token") != token:
-                return self.respond(403, {"error": "请从本地应用页面发起查询"})
             try:
                 length = int(self.headers.get("Content-Length", "0"))
                 if not 0 < length <= 16000:
                     raise ValueError("请求大小不正确")
-                payload = json.loads(self.rfile.read(length))
+                self.connection.settimeout(10)
+                body = self.rfile.read(length)
+                if self.headers.get("X-App-Token") != token:
+                    return self.respond(403, {"error": "请从本地应用页面发起查询"})
+                payload = json.loads(body)
                 if not isinstance(payload, dict):
                     raise ValueError("请求格式不正确")
                 result = app.ask(payload.get("question"), payload.get("thread_id"))

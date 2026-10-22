@@ -1,0 +1,4 @@
+{
+  "question": "订单总数",
+  "sql": "SELECT COUNT(*) AS 总数 FROM orders"
+}
