@@ -1,0 +1,37 @@
+# Local environments and credentials
+.env
+.env.*
+!.env.example
+*.pem
+.venv/
+venv/
+.deps/
+
+# Python and tooling
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.coverage
+htmlcov/
+build/
+dist/
+*.egg-info/
+
+# Runtime data and checkpoints
+apps/txt2sql/data/
+*.sqlite
+*.sqlite3
+*.sqlite-wal
+*.sqlite-shm
+
+# Editors and OS
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db
+*.swp
+
+# Archived local Git metadata
+.tmp/
