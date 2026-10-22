@@ -147,11 +147,13 @@ class ModelPlanner:
 
 
 class Application:
-    def __init__(self, path, knowledge_dir=None):
+    def __init__(self, path, knowledge_dir=None, state_dir=None):
+        state_dir = state_dir or path.parent
+        state_dir.mkdir(parents=True, exist_ok=True)
         self.executor = SQLiteExecutor(path)
         self.catalog = KnowledgeCatalog(path, knowledge_dir or path.parent / "knowledge", self.executor)
         self.planner = ModelPlanner(self.catalog)
-        self.workflow = Workflow(self.executor, self.planner, path.parent, catalog=self.catalog)
+        self.workflow = Workflow(self.executor, self.planner, state_dir, catalog=self.catalog)
 
     def ask(self, question, thread_id=None):
         return self.workflow.ask(question, thread_id)

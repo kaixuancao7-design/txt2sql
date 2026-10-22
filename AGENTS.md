@@ -6,6 +6,8 @@
 `workflow.py` 定义 LangGraph 流程、Schema 检索、安全验证、重试和审计。
 `security.py` 提供共享 AST 安全规则；`knowledge.py` 负责结构采集、知识审核与检索，
 `manage_knowledge.py` 提供本地操作员 CLI，`knowledge/demo.json` 为合成数据基准。
+`mcp_server.py` 为可选的本地 stdio 入口，`skills/txt2sql/SKILL.md` 为分发技能；
+MCP 集成测试需要安装 `apps/txt2sql/requirements-mcp.txt`。
 
 ## 验证
 
@@ -26,3 +28,4 @@ python -m unittest discover -s apps/txt2sql -p "test_*.py" -v
 - 修改行为应添加实际调用对应模块的测试，不写源码字符串断言测试。
 - 文档明确区分固定示例、模拟模型测试和真实模型验证。
 - 草稿知识不可进入检索；示例审批须校验人工预期。Schema、内容与指标变更后需重新审核。
+- MCP stdout 仅传协议消息，业务日志走 stderr；不通过普通问数工具暴露知识审批或授权修改。

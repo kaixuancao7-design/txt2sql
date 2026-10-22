@@ -1,9 +1,9 @@
 name: TXT2SQL independent app
 on:
   push:
-    paths: ['apps/txt2sql/**', '.github/workflows/txt2sql.yml']
+    paths: ['apps/txt2sql/**', 'skills/txt2sql/**', '.github/workflows/txt2sql.yml']
   pull_request:
-    paths: ['apps/txt2sql/**', '.github/workflows/txt2sql.yml']
+    paths: ['apps/txt2sql/**', 'skills/txt2sql/**', '.github/workflows/txt2sql.yml']
 jobs:
   test:
     runs-on: ubuntu-latest
@@ -12,5 +12,5 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
-      - run: pip install -r apps/txt2sql/requirements.txt
+      - run: pip install -r apps/txt2sql/requirements-mcp.txt
       - run: python -m unittest discover -s apps/txt2sql -p 'test_*.py' -v

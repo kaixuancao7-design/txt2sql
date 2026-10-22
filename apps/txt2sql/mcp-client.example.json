@@ -1,0 +1,12 @@
+{
+  "mcpServers": {
+    "txt2sql": {
+      "command": "C:/path/to/txt2sql/apps/txt2sql/.venv/Scripts/python.exe",
+      "args": [
+        "C:/path/to/txt2sql/apps/txt2sql/mcp_server.py",
+        "--data-dir",
+        "C:/path/to/txt2sql/apps/txt2sql/data/mcp"
+      ]
+    }
+  }
+}

@@ -4,6 +4,7 @@ import tempfile
 import unittest
 from pathlib import Path
 from unittest.mock import patch
+from types import SimpleNamespace
 
 from server import Application, init_demo
 from workflow import validate_sql
@@ -90,6 +91,22 @@ class WorkflowTests(unittest.TestCase):
         for sql in ["SELECT * FROM sqlite_master", "SELECT 1; SELECT 2", "DROP TABLE orders", "SELECT * FROM main.orders", "SELECT load_extension('x')", "WITH x AS (SELECT * FROM sqlite_master) SELECT * FROM x"]:
             with self.subTest(sql=sql), self.assertRaises(ValueError):
                 validate_sql(sql)
+
+    def test_status_read_does_not_execute_sql(self):
+        result = self.app.ask("已完成订单数")
+        with patch.object(self.app.executor, "execute", side_effect=AssertionError("status must not execute SQL")):
+            status = self.app.workflow.get_status(result["thread_id"])
+        self.assertEqual(status["status"], "completed")
+        self.assertEqual(status["rows"], [[110]])
+
+    def test_incomplete_checkpoint_cannot_be_resumed_as_human_answer(self):
+        interrupted_process = SimpleNamespace(values={"status": "running", "trace": ["generate_sql"]}, next=("execute_sql",), tasks=())
+        with patch.object(self.app.workflow.graph, "get_state", return_value=interrupted_process):
+            status = self.app.workflow.get_status("a" * 32)
+            self.assertEqual(status["status"], "incomplete")
+            self.assertNotIn("rows", status)
+            with self.assertRaisesRegex(ValueError, "不处于追问"):
+                self.app.ask("继续", "a" * 32)
 
 
 if __name__ == "__main__":

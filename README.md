@@ -54,6 +54,13 @@ flowchart TD
 Schema 已支持自动采集，业务口径和 SQL 示例通过本地审核目录管理。
 操作步骤与 JSON 模板见 [知识目录说明](apps/txt2sql/knowledge/README.md)。
 
+## MCP 与配套 SKILL
+
+提供本地 stdio MCP 服务，可由支持 MCP 的 Agent 调用授权目录查看、自然语言问数、追问恢复和状态读取。
+安装 `apps/txt2sql/requirements-mcp.txt` 后，按 [MCP 接入说明](apps/txt2sql/MCP.md) 配置客户端。
+配套 [TXT2SQL SKILL](skills/txt2sql/SKILL.md) 可复制给其他人加载；安装技能不等于连接服务或获得数据权限。
+服务默认使用独立的合成数据目录，仅面向本地单用户，不提供远程共享或多租户身份认证。
+
 ## 数据授权与未授权请求
 
 权限由服务端和数据库执行边界决定，用户提问、模型输出以及知识条目不能扩大访问权限。

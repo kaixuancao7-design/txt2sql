@@ -165,8 +165,8 @@ class Workflow:
                     raise ValueError("会话编号无效")
                 config = {"configurable": {"thread_id": thread_id}, "recursion_limit": 60}
                 snapshot = self.graph.get_state(config)
-                if not snapshot.next:
-                    raise ValueError("会话不存在或已结束，请开始新查询")
+                if not snapshot.next or not any(task.interrupts for task in snapshot.tasks):
+                    raise ValueError("会话不存在、已结束或不处于追问中，请开始新查询")
                 input_state = Command(resume=question.strip())
             else:
                 thread_id = uuid.uuid4().hex
@@ -176,8 +176,27 @@ class Workflow:
             if output.get("__interrupt__"):
                 self.audit.write(thread_id, "ask_user", "interrupted")
                 return {"thread_id": thread_id, "status": "interrupted", "clarification": output["__interrupt__"][0].value["clarification"], "trace": output.get("trace", [])}
-            result = output.get("result", {}) if not output.get("error") else {}
-            return {**result, "thread_id": thread_id, "status": output["status"], "error": output.get("error", ""), "sql": output.get("sql", ""), "explanation": output.get("explanation", ""), "warnings": output.get("warnings", []), "retry_count": output["retry_count"], "trace": output.get("trace", []), "elapsed_ms": round((time.monotonic()-started)*1000), "definition": "；".join(m["definition"] for m in output.get("metrics", [])) or "未命中已审核指标；请核对 SQL 与业务口径。", "knowledge_version": output.get("knowledge_version", ""), "sources": output.get("sources", [])}
+            return self.format_result(output, thread_id, round((time.monotonic()-started)*1000))
+
+    @staticmethod
+    def format_result(output, thread_id, elapsed_ms=0):
+        result = output.get("result", {}) if not output.get("error") else {}
+        return {**result, "thread_id": thread_id, "status": output["status"], "error": output.get("error", ""), "sql": output.get("sql", ""), "explanation": output.get("explanation", ""), "warnings": output.get("warnings", []), "retry_count": output["retry_count"], "trace": output.get("trace", []), "elapsed_ms": elapsed_ms, "definition": "；".join(m["definition"] for m in output.get("metrics", [])) or "未命中已审核指标；请核对 SQL 与业务口径。", "knowledge_version": output.get("knowledge_version", ""), "sources": output.get("sources", [])}
+
+    def get_status(self, thread_id):
+        if not isinstance(thread_id, str) or not re.fullmatch(r"[a-f0-9]{32}", thread_id):
+            raise ValueError("会话编号无效")
+        with self.lock:
+            snapshot = self.graph.get_state({"configurable": {"thread_id": thread_id}})
+            if not snapshot.values:
+                raise ValueError("会话不存在")
+            for task in snapshot.tasks:
+                if task.interrupts:
+                    return {"thread_id": thread_id, "status": "interrupted", "clarification": task.interrupts[0].value["clarification"], "trace": snapshot.values.get("trace", [])}
+            if snapshot.next:
+                # No background execution is scheduled by this read operation.
+                return {"thread_id": thread_id, "status": "incomplete", "error": "上次运行未完成且不处于用户追问中；请重新发起查询", "trace": snapshot.values.get("trace", [])}
+            return self.format_result(snapshot.values, thread_id)
 
     def close(self):
         self.connection.close()
